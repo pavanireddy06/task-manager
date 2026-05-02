@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Task Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #6a11cb, #2575fc);
+      margin: 0;
+      color: #333;
+    }
+
+    .container {
+      max-width: 500px;
+      margin: 50px auto;
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    input {
+      width: 90%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px 15px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      background: #2575fc;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    button:hover {
+      background: #1b5edc;
+    }
+
+    .task {
+      display: flex;
+      justify-content: space-between;
+      background: #f5f5f5;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 8px;
+    }
+
+    .done {
+      background: #28a745;
+    }
+
+    .logout {
+      background: red;
+    }
+
+    #dashboard { display: none; }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>🚀 Task Manager</h1>
+
+  <!-- LOGIN -->
+  <div id="login">
+    <h3>Login</h3>
+    <input id="email" placeholder="Email">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+
+    <button class="logout" onclick="logout()">Logout</button>
+
+    <h3>Dashboard</h3>
+    <button onclick="getDashboard()">Refresh</button>
+    <p id="stats"></p>
+
+    <h3>Add Task</h3>
+    <input id="taskTitle" placeholder="Enter task">
+    <button onclick="createTask()">Add</button>
+
+    <h3>Your Tasks</h3>
+    <div id="tasks"></div>
+
+  </div>
+
+</div>
+
+<script>
+const API = "https://task-manager-production-d56d.up.railway.app";
+let token = localStorage.getItem("token");
+
+// AUTO LOGIN
+if (token) {
+  showDashboard();
+}
+
+// LOGIN
+async function login() {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const res = await fetch(API + "/api/auth/login", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ email, password })
+  });
+
+  const data = await res.json();
+
+  if (data.token) {
+    token = data.token;
+    localStorage.setItem("token", token);
+    showDashboard();
+  } else {
+    alert(data.message);
+  }
+}
+
+// SHOW DASHBOARD
+function showDashboard() {
+  document.getElementById("login").style.display = "none";
+  document.getElementById("dashboard").style.display = "block";
+  getDashboard();
+  getTasks();
+}
+
+// LOGOUT
+function logout() {
+  localStorage.removeItem("token");
+  location.reload();
+}
+
+// DASHBOARD
+async function getDashboard() {
+  const res = await fetch(API + "/api/dashboard", {
+    headers: { "Authorization": "Bearer " + token }
+  });
+
+  const data = await res.json();
+
+  document.getElementById("stats").innerText =
+    `Total: ${data.totalTasks} | Completed: ${data.completedTasks} | Pending: ${data.pendingTasks}`;
+}
+
+// CREATE TASK
+async function createTask() {
+  const title = document.getElementById("taskTitle").value;
+
+  await fetch(API + "/api/tasks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ title })
+  });
+
+  document.getElementById("taskTitle").value = "";
+  getTasks();
+  getDashboard();
+}
+
+// GET TASKS
+async function getTasks() {
+  const res = await fetch(API + "/api/tasks", {
+    headers: { "Authorization": "Bearer " + token }
+  });
+
+  const tasks = await res.json();
+
+  let html = "";
+
+  tasks.forEach(t => {
+    html += `
+      <div class="task">
+        <span>${t.title} - ${t.status}</span>
+        <button class="done" onclick="markDone('${t._id}')">✔</button>
+      </div>
+    `;
+  });
+
+  document.getElementById("tasks").innerHTML = html;
+}
+
+// UPDATE TASK
+async function markDone(id) {
+  await fetch(API + "/api/tasks/" + id, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({ status: "Done" })
+  });
+
+  getTasks();
+  getDashboard();
+}
+</script>
+
+</body>
+</html>
